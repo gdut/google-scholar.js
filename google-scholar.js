@@ -3,7 +3,7 @@
 // @namespace   https://github.com/organizations/gdut
 // @match http://scholar.google.com/scholar*
 // @match http://scholar.google.com/scholar.bib*
-// @version     1
+// @version     0.0.1
 // @grant       GM_xmlhttpRequest
 // ==/UserScript==
 
@@ -27,32 +27,50 @@
         }
     };
 
+    // 将按钮添加到搜索结果中
     var inject = function() {
-        var pattern = /.*gs_ocit\(\{\}.*'(.*)',.*/,
-            links = document.querySelectorAll('.gs_rt a'),
-            fl = document.querySelectorAll('.gs_r .gs_ri .gs_fl'),
+        /**
+         * 解析搜索结果
+         *
+         * @param raw 搜索结果的 block node
+         * @return
+         *  url: 原始地址
+         *  id: bib 的 info id
+         */
+        var parse = function(raw) {
+            var pattern = /.*gs_ocit\(\{\}.*'(.*)',.*/,
+                url, id;
+
+            url = raw.querySelector('.gs_ri .gs_rt a');
+            url = (url) ? (url.href) : (null);
+
+            id = pattern.exec(raw.innerHTML);
+            id = (id) ? (id[1]) : (null);
+
+            return {
+                'url': url,
+                'id': id
+            };
+        };
+
+        var button = '<a href="#" data-id={{ id }} data-url={{ url }} ' +
+            'class="google-scholar-js-cite">Import cite into BibTeX</a>',
+            searchResults = document.querySelectorAll('.gs_r'),
             i;
 
-        for (i = fl.length - 1;i >= 0;i--) {
-            var url = links[i].href,
-                cite = document.getElementById('gs_rm_md' + i),
-                info;
+        for (i = searchResults.length - 1;i >= 0;i--) {
+            var current = searchResults[i],
+                meta = parse(current);
 
-            if (!cite) continue;
-            cite = pattern.exec(cite.innerHTML);
-            if (!cite) continue;
-            info = cite[1];
+            if (!meta.url || !meta.id) continue;
 
-            fl[i].appendChild(utils.createElement(utils.tmpl(
-                '<a href="#" data-id={{ id }} data-url={{ url }} ' +
-                'class="google-scholar-js-cite">' +
-                'Import cite into BibTeX</a>', {
-                id: info,
-                url: url
-            })));
+            current.querySelector('.gs_ri .gs_fl').appendChild(
+                utils.createElement(utils.tmpl(button, meta))
+            );
         }
     };
 
+    // 绑定点击事件
     var bind = function() {
         var buttons = document.querySelectorAll('.google-scholar-js-cite'),
             i;
